@@ -1,0 +1,91 @@
+// This is your database schema.
+// Run "npm run db:push" to create/update tables in your database.
+// Run "npm run db:studio" to open a visual database browser.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  username     String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  predictions  Prediction[]
+
+  @@map("users")
+}
+
+model League {
+  id       Int     @id  // ID from API-Football
+  name     String
+  country  String
+  season   Int
+  logo     String?
+  teams    Team[]
+  matches  Match[]
+
+  @@map("leagues")
+}
+
+model Team {
+  id          Int     @id  // ID from API-Football
+  name        String
+  shortName   String?
+  logo        String?
+  leagueId    Int
+  league      League  @relation(fields: [leagueId], references: [id])
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+
+  @@map("teams")
+}
+
+model Match {
+  id         Int      @id  // ID from API-Football
+  leagueId   Int
+  homeTeamId Int
+  awayTeamId Int
+  kickoff    DateTime
+  status     String   @default("scheduled")
+  // Status values: "scheduled" | "live" | "finished" | "postponed"
+  homeGoals  Int?
+  awayGoals  Int?
+  venue      String?
+  round      String?
+  stats      Json?
+  // Stats JSON shape:
+  // { shots: { home: 10, away: 5 }, possession: { home: 60, away: 40 }, ... }
+
+  league      League       @relation(fields: [leagueId], references: [id])
+  homeTeam    Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam    Team         @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  predictions Prediction[]
+
+  @@map("matches")
+}
+
+model Prediction {
+  id            String   @id @default(cuid())
+  userId        String
+  matchId       Int
+  predictedHome Int
+  predictedAway Int
+  points        Int?     // null = match not finished yet, 0/1/3 = scored
+  createdAt     DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  // A user can only predict once per match
+  @@unique([userId, matchId])
+  @@map("predictions")
+}
+
